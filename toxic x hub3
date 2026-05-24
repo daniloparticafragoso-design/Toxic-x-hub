@@ -368,10 +368,18 @@ SideDivider.BackgroundColor3 = Color3.fromRGB(55, 55, 57)
 SideDivider.BorderSizePixel = 0
 SideDivider.Parent = Sidebar
 
-local TabButtonContainer = Instance.new("Frame")
+-- ================================================
+-- CORREÇÃO 1: TabButtonContainer como ScrollingFrame
+-- ================================================
+local TabButtonContainer = Instance.new("ScrollingFrame")
 TabButtonContainer.Size = UDim2.new(1, 0, 1, -105)
 TabButtonContainer.Position = UDim2.new(0, 0, 0, 105)
 TabButtonContainer.BackgroundTransparency = 1
+TabButtonContainer.ScrollBarThickness = 2
+TabButtonContainer.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+TabButtonContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+TabButtonContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+TabButtonContainer.BorderSizePixel = 0
 TabButtonContainer.Parent = Sidebar
 
 local TabListLayout = Instance.new("UIListLayout")
@@ -934,7 +942,7 @@ addButton(page3, "Mansão (Sea 3)",  "TP", function() TpTo(CFrame.new(-12463, 37
 addButton(page3, "Piranha",         "TP", function() TpTo(CFrame.new(-11997, 332, -8837)) end)
 
 -- ================================================
---         ABA 4 - AUTO V4 (CORRIGIDO)
+-- CORREÇÃO 2: AUTO V4 - scan automático de remotes
 -- ================================================
 
 addSectionHeader(page4, "RAÇA V4")
@@ -945,47 +953,51 @@ addToggle(page4, "Auto V4", "Ativa V4 automaticamente", function(v)
         if v4Connection then task.cancel(v4Connection); v4Connection = nil end
         v4Connection = task.spawn(function()
             while autoV4 do
-                task.wait(1)
+                task.wait(0.5)
                 pcall(function()
-                    local paths = {
-                        function()
-                            local rf = lp.Backpack:FindFirstChild("Awakening")
-                            if rf then
-                                local rem = rf:FindFirstChild("RemoteFunction")
-                                if rem then rem:InvokeServer(true) end
-                            end
-                        end,
-                        function()
-                            local rf = ReplicatedStorage:FindFirstChild("RaceV4")
-                            if rf then rf:FireServer(true) end
-                        end,
-                        function()
-                            local net = ReplicatedStorage:FindFirstChild("Modules")
-                            if net then
-                                local n = net:FindFirstChild("Net")
-                                if n then
-                                    local ev = n:FindFirstChild("RE/RaceV4") or n:FindFirstChild("RE/Awakening")
-                                    if ev then ev:FireServer(true) end
-                                end
-                            end
-                        end,
-                        function()
-                            local char = lp.Character
-                            if not char then return end
-                            local hum = char:FindFirstChild("Humanoid")
-                            if hum and hum.Health > 0 then
-                                for _, item in pairs(lp.Backpack:GetChildren()) do
-                                    local rem = item:FindFirstChildWhichIsA("RemoteFunction", true)
-                                        or item:FindFirstChildWhichIsA("RemoteEvent", true)
-                                    if rem then
-                                        pcall(function() rem:InvokeServer(true) end)
-                                        pcall(function() rem:FireServer(true) end)
+                    -- Método 1: scan no Net (Modules)
+                    local net = ReplicatedStorage:FindFirstChild("Modules")
+                    if net then
+                        local n = net:FindFirstChild("Net")
+                        if n then
+                            for _, remote in pairs(n:GetDescendants()) do
+                                local name = remote.Name:lower()
+                                if name:find("v4") or name:find("awaken") or name:find("race") then
+                                    if remote:IsA("RemoteEvent") then
+                                        pcall(function() remote:FireServer(true) end)
+                                    elseif remote:IsA("RemoteFunction") then
+                                        pcall(function() remote:InvokeServer(true) end)
                                     end
                                 end
                             end
-                        end,
-                    }
-                    for _, tryPath in ipairs(paths) do pcall(tryPath) end
+                        end
+                    end
+
+                    -- Método 2: scan na Backpack do player
+                    for _, tool in pairs(lp.Backpack:GetChildren()) do
+                        for _, remote in pairs(tool:GetDescendants()) do
+                            local name = remote.Name:lower()
+                            if name:find("v4") or name:find("awaken") or name:find("race") then
+                                if remote:IsA("RemoteEvent") then
+                                    pcall(function() remote:FireServer(true) end)
+                                elseif remote:IsA("RemoteFunction") then
+                                    pcall(function() remote:InvokeServer(true) end)
+                                end
+                            end
+                        end
+                    end
+
+                    -- Método 3: scan geral no ReplicatedStorage
+                    for _, remote in pairs(ReplicatedStorage:GetDescendants()) do
+                        local name = remote.Name:lower()
+                        if name:find("v4") or name:find("awaken") then
+                            if remote:IsA("RemoteEvent") then
+                                pcall(function() remote:FireServer(true) end)
+                            elseif remote:IsA("RemoteFunction") then
+                                pcall(function() remote:InvokeServer(true) end)
+                            end
+                        end
+                    end
                 end)
             end
         end)
@@ -1127,7 +1139,6 @@ local function buildESP(player)
 
     local data = { hrp = hrp }
 
-    -- Billboard nome + distância
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ToxicESP_Name"
     billboard.AlwaysOnTop = true
@@ -1163,7 +1174,6 @@ local function buildESP(player)
     distLabel.Parent = billboard
     data.distLabel = distLabel
 
-    -- Box ESP
     local selBox = Instance.new("SelectionBox")
     selBox.Adornee = char
     selBox.Color3 = currentRainbow
@@ -1173,7 +1183,6 @@ local function buildESP(player)
     selBox.Parent = ScreenGui
     data.box = selBox
 
-    -- Linha Drawing
     local line = Drawing.new("Line")
     line.Visible = ESPLines
     line.Thickness = 1.5
@@ -1312,6 +1321,9 @@ end)
 
 addSectionHeader(page7, "📷 CÂMERA")
 
+-- ================================================
+-- CORREÇÃO 3: Camera Lock - restaura câmera corretamente ao desativar
+-- ================================================
 addToggle(page7, "Camera Lock (Mais Perto)", "Câmera sempre olha pro player mais próximo", function(v)
     AimbotCamEnabled = v
     if v then
@@ -1332,7 +1344,14 @@ addToggle(page7, "Camera Lock (Mais Perto)", "Câmera sempre olha pro player mai
         end)
     else
         if CamConnection then CamConnection:Disconnect(); CamConnection = nil end
-        workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+        -- Restaura câmera e CameraSubject corretamente
+        local cam = workspace.CurrentCamera
+        cam.CameraType = Enum.CameraType.Custom
+        local char = lp.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            cam.CameraSubject = humanoid or char:FindFirstChild("HumanoidRootPart")
+        end
     end
 end)
 
@@ -1394,14 +1413,10 @@ addToggle(page8, "Soru Sem Cooldown", "Remove o cooldown do Soru completamente",
                 pcall(function()
                     local char = lp.Character
                     if not char then return end
-
-                    -- Reseta estado do humanoid para liberar dash
                     local hum = char:FindFirstChild("Humanoid")
                     if hum then
                         hum:ChangeState(Enum.HumanoidStateType.Running)
                     end
-
-                    -- Zera cooldown nos tools da Backpack
                     for _, tool in pairs(lp.Backpack:GetChildren()) do
                         for _, v2 in pairs(tool:GetDescendants()) do
                             if (v2.Name:lower():find("cooldown") or v2.Name:lower():find("cd"))
@@ -1410,8 +1425,6 @@ addToggle(page8, "Soru Sem Cooldown", "Remove o cooldown do Soru completamente",
                             end
                         end
                     end
-
-                    -- Zera cooldown também no personagem equipado
                     for _, tool in pairs(char:GetChildren()) do
                         if tool:IsA("Tool") then
                             for _, v2 in pairs(tool:GetDescendants()) do
@@ -1422,8 +1435,6 @@ addToggle(page8, "Soru Sem Cooldown", "Remove o cooldown do Soru completamente",
                             end
                         end
                     end
-
-                    -- Tenta via RemoteEvent do servidor
                     local net = ReplicatedStorage:FindFirstChild("Modules")
                     if net then
                         local n = net:FindFirstChild("Net")
@@ -1499,7 +1510,6 @@ addToggle(page9, "Expandir Hitbox", "Aumenta a hitbox dos players", function(v)
     HitboxEnabled = v
     if v then
         expandHitboxes()
-
         if HitboxConn then HitboxConn:Disconnect() end
         HitboxConn = RunService.Heartbeat:Connect(function()
             if not HitboxEnabled then return end
@@ -1522,7 +1532,6 @@ addToggle(page9, "Expandir Hitbox", "Aumenta a hitbox dos players", function(v)
                 end
             end
         end)
-
         Players.PlayerAdded:Connect(function(player)
             player.CharacterAdded:Connect(function()
                 task.wait(0.5)
